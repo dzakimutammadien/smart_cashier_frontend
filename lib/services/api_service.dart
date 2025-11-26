@@ -9,49 +9,110 @@ class ApiService {
   ApiService({http.Client? client}) : client = client ?? http.Client();
 
   Future<List<Product>> getProducts() async {
-    final response = await client.get(Uri.parse('$baseUrl/products'));
+    try {
+      final response = await client.get(Uri.parse('$baseUrl/products'));
 
-    if (response.statusCode == 200) {
-      List<dynamic> data = json.decode(response.body);
-      return data.map((json) => Product.fromJson(json)).toList();
-    } else {
-      throw Exception('Failed to load products');
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        // Decode sebagai Map karena response dari Laravel adalah JSON object
+        Map<String, dynamic> responseData = json.decode(response.body);
+        
+        // Cek jika response success dan data ada
+        if (responseData['success'] == true) {
+          // Akses array products dari properti 'data'
+          List<dynamic> data = responseData['data'];
+          
+          // Convert setiap item di array menjadi object Product
+          List<Product> products = data.map((item) => Product.fromJson(item)).toList();
+          
+          print('Successfully loaded ${products.length} products');
+          return products;
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else {
+        throw Exception('HTTP Error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Error in getProducts: $e');
+      throw Exception('Failed to load products: $e');
     }
   }
 
   Future<Product> createProduct(Product product) async {
-    final response = await client.post(
-      Uri.parse('$baseUrl/products'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(product.toJson()),
-    );
+    try {
+      final response = await client.post(
+        Uri.parse('$baseUrl/products'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(product.toJson()),
+      );
 
-    if (response.statusCode == 201) {
-      return Product.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to create product');
+      print('Create Product Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 201) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+        
+        if (responseData['success'] == true) {
+          return Product.fromJson(responseData['data']);
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else {
+        throw Exception('Failed to create product: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in createProduct: $e');
+      throw Exception('Failed to create product: $e');
     }
   }
 
   Future<Product> updateProduct(int id, Product product) async {
-    final response = await client.put(
-      Uri.parse('$baseUrl/products/$id'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(product.toJson()),
-    );
+    try {
+      final response = await client.put(
+        Uri.parse('$baseUrl/products/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(product.toJson()),
+      );
 
-    if (response.statusCode == 200) {
-      return Product.fromJson(json.decode(response.body));
-    } else {
-      throw Exception('Failed to update product');
+      print('Update Product Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+        
+        if (responseData['success'] == true) {
+          return Product.fromJson(responseData['data']);
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else {
+        throw Exception('Failed to update product: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in updateProduct: $e');
+      throw Exception('Failed to update product: $e');
     }
   }
 
   Future<void> deleteProduct(int id) async {
-    final response = await client.delete(Uri.parse('$baseUrl/products/$id'));
+    try {
+      final response = await client.delete(Uri.parse('$baseUrl/products/$id'));
 
-    if (response.statusCode != 204) {
-      throw Exception('Failed to delete product');
+      print('Delete Product Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+        
+        if (responseData['success'] != true) {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else {
+        throw Exception('Failed to delete product: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in deleteProduct: $e');
+      throw Exception('Failed to delete product: $e');
     }
   }
 }
