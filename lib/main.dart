@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
+import 'pages/login_page.dart';
+import 'pages/register_page.dart';
 import 'pages/product_list_page.dart';
 import 'pages/pos_page.dart';
 
@@ -16,6 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: MaterialApp(
@@ -24,8 +28,10 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
-        home: HomePage(),
+        home: AuthWrapper(),
         routes: {
+          '/login': (context) => LoginPage(),
+          '/register': (context) => RegisterPage(),
           '/products': (context) => ProductListPage(),
           '/pos': (context) => PosPage(),
         },
@@ -34,17 +40,56 @@ class MyApp extends StatelessWidget {
   }
 }
 
+class AuthWrapper extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        if (authProvider.isLoading) {
+          return Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(),
+            ),
+          );
+        }
+
+        if (authProvider.isLoggedIn) {
+          return HomePage();
+        } else {
+          return LoginPage();
+        }
+      },
+    );
+  }
+}
+
 class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Smart Cashier'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () async {
+              await authProvider.logout();
+              Navigator.of(context).pushReplacementNamed('/login');
+            },
+          ),
+        ],
       ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Text(
+              'Welcome, ${authProvider.user?.name ?? 'User'}!',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            SizedBox(height: 32),
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/products'),
               child: Text('Manage Products'),
