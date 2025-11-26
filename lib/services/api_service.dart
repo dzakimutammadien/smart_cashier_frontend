@@ -140,4 +140,124 @@ class ApiService {
       throw Exception('Failed to delete product: $e');
     }
   }
+
+  Future<List<Product>> getPopularProducts({int limit = 10}) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await client.get(
+        Uri.parse('$baseUrl/recommendations/popular?limit=$limit'),
+        headers: headers,
+      );
+
+      print('Popular Products Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          List<dynamic> data = responseData['data'];
+          return data.map((item) => Product.fromJson(item)).toList();
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Please login again');
+      } else {
+        throw Exception('Failed to load popular products: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getPopularProducts: $e');
+      throw Exception('Failed to load popular products: $e');
+    }
+  }
+
+  Future<List<Product>> getPersonalizedRecommendations({int limit = 10}) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await client.get(
+        Uri.parse('$baseUrl/recommendations/personalized?limit=$limit'),
+        headers: headers,
+      );
+
+      print('Personalized Recommendations Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          List<dynamic> data = responseData['data'];
+          return data.map((item) => Product.fromJson(item)).toList();
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Please login again');
+      } else {
+        throw Exception('Failed to load personalized recommendations: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getPersonalizedRecommendations: $e');
+      throw Exception('Failed to load personalized recommendations: $e');
+    }
+  }
+
+  Future<List<Product>> getRecommendations({int limit = 10}) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await client.get(
+        Uri.parse('$baseUrl/recommendations?limit=$limit'),
+        headers: headers,
+      );
+
+      print('Recommendations Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          List<dynamic> data = responseData['data'];
+          return data.map((item) => Product.fromJson(item)).toList();
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Please login again');
+      } else {
+        throw Exception('Failed to load recommendations: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in getRecommendations: $e');
+      throw Exception('Failed to load recommendations: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> checkout(List<Map<String, dynamic>> items, double total) async {
+    try {
+      final headers = await _getHeaders();
+      final body = json.encode({
+        'items': items,
+        'total': total,
+      });
+
+      final response = await client.post(
+        Uri.parse('$baseUrl/orders'),
+        headers: headers,
+        body: body,
+      );
+
+      print('Checkout Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 201) {
+        return json.decode(response.body);
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Please login again');
+      } else {
+        Map<String, dynamic> errorData = json.decode(response.body);
+        throw Exception('Checkout failed: ${errorData['message'] ?? response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in checkout: $e');
+      throw Exception('Failed to checkout: $e');
+    }
+  }
 }

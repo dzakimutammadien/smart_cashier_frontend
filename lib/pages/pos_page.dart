@@ -14,15 +14,21 @@ class PosPage extends StatefulWidget {
 class _PosPageState extends State<PosPage> {
   final ApiService apiService = ApiService();
   late Future<List<Product>> _productsFuture;
+  late Future<List<Product>> _recommendationsFuture;
 
   @override
   void initState() {
     super.initState();
     _loadProducts();
+    _loadRecommendations();
   }
 
   void _loadProducts() {
     _productsFuture = apiService.getProducts();
+  }
+
+  void _loadRecommendations() {
+    _recommendationsFuture = apiService.getRecommendations(limit: 6);
   }
 
   void _addToCart(Product product) {
@@ -54,6 +60,7 @@ class _PosPageState extends State<PosPage> {
             onPressed: () {
               setState(() {
                 _loadProducts();
+                _loadRecommendations();
               });
             },
           ),
@@ -84,92 +91,219 @@ class _PosPageState extends State<PosPage> {
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('No products available'));
           } else {
-            return GridView.builder(
-              padding: EdgeInsets.all(8),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.75,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: snapshot.data!.length,
-              itemBuilder: (context, index) {
-                Product product = snapshot.data![index];
-                bool isInCart = cartProvider.isInCart(product.id!);
-                int quantity = cartProvider.getQuantity(product.id!);
-
-                return Card(
-                  elevation: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: product.imageUrl != null && product.imageUrl!.isNotEmpty
-                            ? Image.network(
-                                product.imageUrl!,
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[300],
-                                    child: Icon(Icons.image, size: 50, color: Colors.grey),
-                                  );
-                                },
-                              )
-                            : Container(
-                                color: Colors.grey[300],
-                                child: Icon(Icons.image, size: 50, color: Colors.grey),
-                              ),
+            return SingleChildScrollView(
+              child: Column(
+                children: [
+                  // Products Grid
+                  Container(
+                    height: MediaQuery.of(context).size.height * 0.6,
+                    child: GridView.builder(
+                      padding: EdgeInsets.all(8),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        childAspectRatio: 0.75,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              product.name,
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              '\$${product.price.toStringAsFixed(2)}',
-                              style: TextStyle(color: Colors.green, fontSize: 14),
-                            ),
-                            Text('Stock: ${product.stock}', style: TextStyle(fontSize: 12)),
-                            SizedBox(height: 8),
-                            if (isInCart)
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: Icon(Icons.remove, size: 20),
-                                    onPressed: quantity > 1
-                                        ? () => cartProvider.updateQuantity(product.id!, quantity - 1)
-                                        : () => cartProvider.removeFromCart(product.id!),
-                                  ),
-                                  Text('$quantity', style: TextStyle(fontSize: 16)),
-                                  IconButton(
-                                    icon: Icon(Icons.add, size: 20),
-                                    onPressed: () => cartProvider.addToCart(product),
-                                  ),
-                                ],
-                              )
-                            else
-                              ElevatedButton(
-                                onPressed: product.stock > 0 ? () => _addToCart(product) : null,
-                                child: Text('Add to Cart'),
-                                style: ElevatedButton.styleFrom(
-                                  minimumSize: Size(double.infinity, 36),
+                      itemCount: snapshot.data!.length,
+                      itemBuilder: (context, index) {
+                        Product product = snapshot.data![index];
+                        bool isInCart = cartProvider.isInCart(product.id!);
+                        int quantity = cartProvider.getQuantity(product.id!);
+
+                        return Card(
+                          elevation: 2,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                                    ? Image.network(
+                                        product.imageUrl!,
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: Colors.grey[300],
+                                            child: Icon(Icons.image, size: 50, color: Colors.grey),
+                                          );
+                                        },
+                                      )
+                                    : Container(
+                                        color: Colors.grey[300],
+                                        child: Icon(Icons.image, size: 50, color: Colors.grey),
+                                      ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      product.name,
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    SizedBox(height: 4),
+                                    Text(
+                                      '\$${product.price.toStringAsFixed(2)}',
+                                      style: TextStyle(color: Colors.green, fontSize: 14),
+                                    ),
+                                    Text('Stock: ${product.stock}', style: TextStyle(fontSize: 12)),
+                                    SizedBox(height: 8),
+                                    if (isInCart)
+                                      Row(
+                                        children: [
+                                          IconButton(
+                                            icon: Icon(Icons.remove, size: 20),
+                                            onPressed: quantity > 1
+                                                ? () => cartProvider.updateQuantity(product.id!, quantity - 1)
+                                                : () => cartProvider.removeFromCart(product.id!),
+                                          ),
+                                          Text('$quantity', style: TextStyle(fontSize: 16)),
+                                          IconButton(
+                                            icon: Icon(Icons.add, size: 20),
+                                            onPressed: () => cartProvider.addToCart(product),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      ElevatedButton(
+                                        onPressed: product.stock > 0 ? () => _addToCart(product) : null,
+                                        child: Text('Add to Cart'),
+                                        style: ElevatedButton.styleFrom(
+                                          minimumSize: Size(double.infinity, 36),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                          ],
-                        ),
-                      ),
-                    ],
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                );
-              },
+                  // Recommendations Section
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Recommended for You',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 8),
+                        FutureBuilder<List<Product>>(
+                          future: _recommendationsFuture,
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator());
+                            } else if (snapshot.hasError) {
+                              return Center(
+                                child: Text('Error loading recommendations: ${snapshot.error}'),
+                              );
+                            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                              return Center(child: Text('No recommendations available'));
+                            } else {
+                              return Container(
+                                height: 200,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: snapshot.data!.length,
+                                  itemBuilder: (context, index) {
+                                    Product product = snapshot.data![index];
+                                    bool isInCart = cartProvider.isInCart(product.id!);
+                                    int quantity = cartProvider.getQuantity(product.id!);
+
+                                    return Container(
+                                      width: 160,
+                                      margin: EdgeInsets.only(right: 8),
+                                      child: Card(
+                                        elevation: 2,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: product.imageUrl != null && product.imageUrl!.isNotEmpty
+                                                  ? Image.network(
+                                                      product.imageUrl!,
+                                                      fit: BoxFit.cover,
+                                                      width: double.infinity,
+                                                      errorBuilder: (context, error, stackTrace) {
+                                                        return Container(
+                                                          color: Colors.grey[300],
+                                                          child: Icon(Icons.image, size: 40, color: Colors.grey),
+                                                        );
+                                                      },
+                                                    )
+                                                  : Container(
+                                                      color: Colors.grey[300],
+                                                      child: Icon(Icons.image, size: 40, color: Colors.grey),
+                                                    ),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(8.0),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    product.name,
+                                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                                    maxLines: 2,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  SizedBox(height: 4),
+                                                  Text(
+                                                    '\$${product.price.toStringAsFixed(2)}',
+                                                    style: TextStyle(color: Colors.green, fontSize: 12),
+                                                  ),
+                                                  SizedBox(height: 4),
+                                                  if (isInCart)
+                                                    Row(
+                                                      children: [
+                                                        IconButton(
+                                                          icon: Icon(Icons.remove, size: 16),
+                                                          onPressed: quantity > 1
+                                                              ? () => cartProvider.updateQuantity(product.id!, quantity - 1)
+                                                              : () => cartProvider.removeFromCart(product.id!),
+                                                        ),
+                                                        Text('$quantity', style: TextStyle(fontSize: 12)),
+                                                        IconButton(
+                                                          icon: Icon(Icons.add, size: 16),
+                                                          onPressed: () => cartProvider.addToCart(product),
+                                                        ),
+                                                      ],
+                                                    )
+                                                  else
+                                                    ElevatedButton(
+                                                      onPressed: product.stock > 0 ? () => _addToCart(product) : null,
+                                                      child: Text('Add', style: TextStyle(fontSize: 12)),
+                                                      style: ElevatedButton.styleFrom(
+                                                        minimumSize: Size(double.infinity, 30),
+                                                        padding: EdgeInsets.symmetric(vertical: 4),
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             );
           }
         },
@@ -323,17 +457,42 @@ class CartBottomSheet extends StatelessWidget {
     );
   }
 
-  void _checkout(BuildContext context, CartProvider cartProvider) {
+  void _checkout(BuildContext context, CartProvider cartProvider) async {
     showDialog(
       context: context,
       builder: (context) => ReceiptDialog(cart: cartProvider.cart),
-    ).then((confirmed) {
+    ).then((confirmed) async {
       if (confirmed == true) {
-        cartProvider.clearCart();
-        Navigator.pop(context); // Close bottom sheet
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment confirmed!')),
-        );
+        try {
+          // Prepare order data
+          final items = cartProvider.cart.items.map((item) => {
+            'product_id': item.product.id,
+            'quantity': item.quantity,
+          }).toList();
+
+          // Call checkout API
+          final response = await apiService.checkout(items, cartProvider.totalPrice);
+
+          if (response['success'] == true) {
+            cartProvider.clearCart();
+            Navigator.pop(context); // Close bottom sheet
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Payment confirmed and order saved!')),
+            );
+            // Refresh recommendations after purchase
+            setState(() {
+              _loadRecommendations();
+            });
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to save order: ${response['message']}')),
+            );
+          }
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error during checkout: $e')),
+          );
+        }
       }
     });
   }
