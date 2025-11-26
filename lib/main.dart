@@ -6,6 +6,7 @@ import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/product_list_page.dart';
 import 'pages/pos_page.dart';
+import 'pages/analytics_dashboard_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,6 +35,7 @@ class MyApp extends StatelessWidget {
           '/register': (context) => RegisterPage(),
           '/products': (context) => ProductListPage(),
           '/pos': (context) => PosPage(),
+          '/analytics': (context) => AnalyticsDashboardPage(),
         },
       ),
     );
@@ -98,6 +100,11 @@ class HomePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/pos'),
               child: Text('Point of Sale'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/analytics'),
+              child: Text('Analytics Dashboard'),
             ),
           ],
         ),
