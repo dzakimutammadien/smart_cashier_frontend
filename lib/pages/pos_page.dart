@@ -43,7 +43,10 @@ class _PosPageState extends State<PosPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => CartBottomSheet(),
+      builder: (context) => CartBottomSheet(
+        apiService: apiService,
+        reloadRecommendations: () => setState(() => _loadRecommendations()),
+      ),
     );
   }
 
@@ -343,7 +346,17 @@ class _PosPageState extends State<PosPage> {
   }
 }
 
-class CartBottomSheet extends StatelessWidget {
+class CartBottomSheet extends StatefulWidget {
+  final ApiService apiService;
+  final VoidCallback reloadRecommendations;
+
+  CartBottomSheet({required this.apiService, required this.reloadRecommendations});
+
+  @override
+  _CartBottomSheetState createState() => _CartBottomSheetState();
+}
+
+class _CartBottomSheetState extends State<CartBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final cartProvider = Provider.of<CartProvider>(context);
@@ -471,7 +484,7 @@ class CartBottomSheet extends StatelessWidget {
           }).toList();
 
           // Call checkout API
-          final response = await apiService.checkout(items, cartProvider.totalPrice);
+          final response = await widget.apiService.checkout(items, cartProvider.totalPrice);
 
           if (response['success'] == true) {
             cartProvider.clearCart();
@@ -480,9 +493,7 @@ class CartBottomSheet extends StatelessWidget {
               SnackBar(content: Text('Payment confirmed and order saved!')),
             );
             // Refresh recommendations after purchase
-            setState(() {
-              _loadRecommendations();
-            });
+            widget.reloadRecommendations();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Failed to save order: ${response['message']}')),
