@@ -125,6 +125,10 @@ class _PosPageState extends State<PosPage> {
                                         product.imageUrl!,
                                         fit: BoxFit.cover,
                                         width: double.infinity,
+                                        loadingBuilder: (context, child, loadingProgress) {
+                                          if (loadingProgress == null) return child;
+                                          return Center(child: CircularProgressIndicator());
+                                        },
                                         errorBuilder: (context, error, stackTrace) {
                                           return Container(
                                             color: Colors.grey[300],
@@ -235,6 +239,10 @@ class _PosPageState extends State<PosPage> {
                                                       product.imageUrl!,
                                                       fit: BoxFit.cover,
                                                       width: double.infinity,
+                                                      loadingBuilder: (context, child, loadingProgress) {
+                                                        if (loadingProgress == null) return child;
+                                                        return Center(child: CircularProgressIndicator());
+                                                      },
                                                       errorBuilder: (context, error, stackTrace) {
                                                         return Container(
                                                           color: Colors.grey[300],
@@ -396,6 +404,10 @@ class _CartBottomSheetState extends State<CartBottomSheet> {
                                 width: 50,
                                 height: 50,
                                 fit: BoxFit.cover,
+                                loadingBuilder: (context, child, loadingProgress) {
+                                  if (loadingProgress == null) return child;
+                                  return Center(child: CircularProgressIndicator());
+                                },
                                 errorBuilder: (context, error, stackTrace) => Icon(Icons.image),
                               )
                             : Icon(Icons.image, size: 50),

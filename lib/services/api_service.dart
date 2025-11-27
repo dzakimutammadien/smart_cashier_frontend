@@ -1,15 +1,21 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:dio/dio.dart';
 import '../models/product.dart';
+import '../models/category.dart';
 import 'auth_service.dart';
+import 'image_picker_service.dart';
 
 class ApiService {
   static const String baseUrl = 'http://localhost:8000/api';
   final http.Client client;
+  final Dio dio;
   final AuthService authService;
 
-  ApiService({http.Client? client, AuthService? authService})
+  ApiService({http.Client? client, Dio? dio, AuthService? authService})
       : client = client ?? http.Client(),
+        dio = dio ?? Dio(),
         authService = authService ?? AuthService();
 
   Future<Map<String, String>> _getHeaders() async {
@@ -57,29 +63,124 @@ class ApiService {
     }
   }
 
-  Future<Product> createProduct(Product product) async {
+  Future<List<Category>> getCategories() async {
     try {
       final headers = await _getHeaders();
-      final response = await client.post(
-        Uri.parse('$baseUrl/products'),
-        headers: headers,
-        body: json.encode(product.toJson()),
-      );
+      final response = await client.get(Uri.parse('$baseUrl/categories'), headers: headers);
 
-      print('Create Product Response: ${response.statusCode} - ${response.body}');
+      print('Response Status: ${response.statusCode}');
+      print('Response Body: ${response.body}');
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200) {
         Map<String, dynamic> responseData = json.decode(response.body);
 
         if (responseData['success'] == true) {
-          return Product.fromJson(responseData['data']);
+          List<dynamic> data = responseData['data'];
+          List<Category> categories = data.map((item) => Category.fromJson(item)).toList();
+
+          print('Successfully loaded ${categories.length} categories');
+          return categories;
         } else {
           throw Exception('API Error: ${responseData['message']}');
         }
       } else if (response.statusCode == 401) {
         throw Exception('Unauthorized: Please login again');
       } else {
-        throw Exception('Failed to create product: ${response.statusCode}');
+        throw Exception('HTTP Error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Error in getCategories: $e');
+      throw Exception('Failed to load categories: $e');
+    }
+  }
+
+  Future<Product> createProduct(Product product, {PickedImage? imageFile}) async {
+    // Validation
+    if (product.name.trim().isEmpty) {
+      throw Exception('Product name cannot be empty');
+    }
+    if (product.price <= 0) {
+      throw Exception('Product price must be greater than 0');
+    }
+    if (product.stock < 0) {
+      throw Exception('Product stock cannot be negative');
+    }
+    if (product.categoryId <= 0) {
+      throw Exception('Valid category must be selected');
+    }
+
+    try {
+      final token = await authService.getToken();
+
+      if (imageFile != null) {
+        // Use multipart upload
+        MultipartFile multipartFile;
+        if (imageFile.isWeb && imageFile.bytes != null) {
+          multipartFile = MultipartFile.fromBytes(
+            imageFile.bytes!,
+            filename: imageFile.fileName ?? 'image.jpg',
+          );
+        } else if (!imageFile.isWeb && imageFile.file != null) {
+          multipartFile = await MultipartFile.fromFile(
+            imageFile.file.path,
+            filename: imageFile.fileName ?? 'image.jpg',
+          );
+        } else {
+          throw Exception('Invalid image data');
+        }
+
+        FormData formData = FormData.fromMap({
+          'name': product.name,
+          'description': product.description,
+          'price': product.price.toString(),
+          'stock': product.stock.toString(),
+          'category_id': product.categoryId.toString(),
+          'image': multipartFile,
+        });
+
+        dio.options.headers['Authorization'] = 'Bearer $token';
+
+        final response = await dio.post('$baseUrl/products', data: formData);
+
+        print('Create Product Response: ${response.statusCode} - ${response.data}');
+
+        if (response.statusCode == 201) {
+          Map<String, dynamic> responseData = response.data;
+
+          if (responseData['success'] == true) {
+            return Product.fromJson(responseData['data']);
+          } else {
+            throw Exception('API Error: ${responseData['message']}');
+          }
+        } else if (response.statusCode == 401) {
+          throw Exception('Unauthorized: Please login again');
+        } else {
+          throw Exception('Failed to create product: ${response.statusCode}');
+        }
+      } else {
+        // Use JSON
+        final headers = await _getHeaders();
+        final response = await client.post(
+          Uri.parse('$baseUrl/products'),
+          headers: headers,
+          body: json.encode(product.toJson()),
+        );
+
+        print('Create Product Response: ${response.statusCode} - ${response.body}');
+
+        if (response.statusCode == 201) {
+          Map<String, dynamic> responseData = json.decode(response.body);
+
+          if (responseData['success'] == true) {
+            return Product.fromJson(responseData['data']);
+          } else {
+            throw Exception('API Error: ${responseData['message']}');
+          }
+        } else if (response.statusCode == 401) {
+          throw Exception('Unauthorized: Please login again');
+        } else {
+          throw Exception('Failed to create product: ${response.statusCode}');
+        }
       }
     } catch (e) {
       print('Error in createProduct: $e');
@@ -87,29 +188,94 @@ class ApiService {
     }
   }
 
-  Future<Product> updateProduct(int id, Product product) async {
+  Future<Product> updateProduct(int id, Product product, {PickedImage? imageFile}) async {
+    // Validation
+    if (product.name.trim().isEmpty) {
+      throw Exception('Product name cannot be empty');
+    }
+    if (product.price <= 0) {
+      throw Exception('Product price must be greater than 0');
+    }
+    if (product.stock < 0) {
+      throw Exception('Product stock cannot be negative');
+    }
+    if (product.categoryId <= 0) {
+      throw Exception('Valid category must be selected');
+    }
+
     try {
-      final headers = await _getHeaders();
-      final response = await client.put(
-        Uri.parse('$baseUrl/products/$id'),
-        headers: headers,
-        body: json.encode(product.toJson()),
-      );
+      final token = await authService.getToken();
 
-      print('Update Product Response: ${response.statusCode} - ${response.body}');
-
-      if (response.statusCode == 200) {
-        Map<String, dynamic> responseData = json.decode(response.body);
-
-        if (responseData['success'] == true) {
-          return Product.fromJson(responseData['data']);
+      if (imageFile != null) {
+        // Use multipart upload
+        MultipartFile multipartFile;
+        if (imageFile.isWeb && imageFile.bytes != null) {
+          multipartFile = MultipartFile.fromBytes(
+            imageFile.bytes!,
+            filename: imageFile.fileName ?? 'image.jpg',
+          );
+        } else if (!imageFile.isWeb && imageFile.file != null) {
+          multipartFile = await MultipartFile.fromFile(
+            imageFile.file.path,
+            filename: imageFile.fileName ?? 'image.jpg',
+          );
         } else {
-          throw Exception('API Error: ${responseData['message']}');
+          throw Exception('Invalid image data');
         }
-      } else if (response.statusCode == 401) {
-        throw Exception('Unauthorized: Please login again');
+
+        FormData formData = FormData.fromMap({
+          'name': product.name,
+          'description': product.description,
+          'price': product.price.toString(),
+          'stock': product.stock.toString(),
+          'category_id': product.categoryId.toString(),
+          'image': multipartFile,
+          '_method': 'PUT', // For Laravel PUT via POST
+        });
+
+        dio.options.headers['Authorization'] = 'Bearer $token';
+
+        final response = await dio.post('$baseUrl/products/$id', data: formData);
+
+        print('Update Product Response: ${response.statusCode} - ${response.data}');
+
+        if (response.statusCode == 200) {
+          Map<String, dynamic> responseData = response.data;
+
+          if (responseData['success'] == true) {
+            return Product.fromJson(responseData['data']);
+          } else {
+            throw Exception('API Error: ${responseData['message']}');
+          }
+        } else if (response.statusCode == 401) {
+          throw Exception('Unauthorized: Please login again');
+        } else {
+          throw Exception('Failed to update product: ${response.statusCode}');
+        }
       } else {
-        throw Exception('Failed to update product: ${response.statusCode}');
+        // Use JSON
+        final headers = await _getHeaders();
+        final response = await client.put(
+          Uri.parse('$baseUrl/products/$id'),
+          headers: headers,
+          body: json.encode(product.toJson()),
+        );
+
+        print('Update Product Response: ${response.statusCode} - ${response.body}');
+
+        if (response.statusCode == 200) {
+          Map<String, dynamic> responseData = json.decode(response.body);
+
+          if (responseData['success'] == true) {
+            return Product.fromJson(responseData['data']);
+          } else {
+            throw Exception('API Error: ${responseData['message']}');
+          }
+        } else if (response.statusCode == 401) {
+          throw Exception('Unauthorized: Please login again');
+        } else {
+          throw Exception('Failed to update product: ${response.statusCode}');
+        }
       }
     } catch (e) {
       print('Error in updateProduct: $e');
