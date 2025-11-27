@@ -486,8 +486,10 @@ class _CartBottomSheetState extends State<CartBottomSheet> {
     showDialog(
       context: context,
       builder: (context) => ReceiptDialog(cart: cartProvider.cart),
-    ).then((confirmed) async {
-      if (confirmed == true) {
+    ).then((result) async {
+      if (result != null && result['confirmed'] == true) {
+        final payment = result['payment'];
+        final change = result['change'];
         try {
           // Prepare order data
           final items = cartProvider.cart.items.map((item) => {
@@ -495,14 +497,14 @@ class _CartBottomSheetState extends State<CartBottomSheet> {
             'quantity': item.quantity,
           }).toList();
 
-          // Call checkout API
+          // Call checkout API (you may need to update API to include payment amount)
           final response = await widget.apiService.checkout(items, cartProvider.totalPrice);
 
           if (response['success'] == true) {
             cartProvider.clearCart();
             Navigator.pop(context); // Close bottom sheet
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Payment confirmed and order saved!')),
+              SnackBar(content: Text('Payment of \$${payment.toStringAsFixed(2)} confirmed! Change: \$${change.toStringAsFixed(2)}')),
             );
             // Refresh recommendations after purchase
             widget.reloadRecommendations();
