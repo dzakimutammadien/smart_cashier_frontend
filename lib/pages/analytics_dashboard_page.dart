@@ -19,6 +19,17 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
   Map<String, dynamic>? _dashboardData;
   bool _isLoading = true;
 
+  String _formatCurrency(double amount) {
+    // Convert from cents to dollars and format with $ and 2 decimals
+    return '\$${(amount / 100).toStringAsFixed(2)}';
+  }
+
+  double _calculateAverageTransaction(double revenue, int orders) {
+    if (orders == 0) return 0.0;
+    // Calculate average and convert from cents to dollars
+    return (revenue / orders) / 100;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -29,22 +40,33 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
   }
 
   Future<void> _loadData() async {
-    print('DEBUG: Starting _loadData');
+    // Debug logs for development - comment out for production
+    // print('DEBUG: Starting _loadData');
     setState(() => _isLoading = true);
     try {
+      // print('=== DASHBOARD API DEBUG ===');
+      // print('Calling getDashboardData...');
+
       final result = await _analyticsService.getDashboardData();
-      print('DEBUG: Dashboard API Response: $result');
+      // print('DEBUG: Dashboard API Response: $result');
 
       setState(() {
         _dashboardData = result['data'] ?? result;
-        print('DEBUG: Parsed dashboardData: $_dashboardData');
-        if (_dashboardData != null && _dashboardData!['today'] != null) {
-          print('DEBUG: Today revenue: ${_dashboardData!['today']['revenue']}');
-        }
+        // print('DEBUG: Parsed dashboardData: $_dashboardData');
+        // if (_dashboardData != null) {
+        //   print('DEBUG: Today data: ${_dashboardData!['today']}');
+        //   print('DEBUG: This week data: ${_dashboardData!['this_week']}');
+        //   print('DEBUG: This month data: ${_dashboardData!['this_month']}');
+        //   if (_dashboardData!['today'] != null) {
+        //     print('DEBUG: Today revenue: ${_dashboardData!['today']['revenue']}');
+        //     print('DEBUG: Today orders: ${_dashboardData!['today']['orders']}');
+        //   }
+        // }
         _isLoading = false;
       });
     } catch (e) {
-      print('DEBUG: ERROR in _loadData: $e');
+      // Keep error logging for production debugging
+      print('ERROR in _loadData: $e');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -77,8 +99,28 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                     const SizedBox(height: 24),
                     Consumer<RevenueProvider>(
                       builder: (context, revenueProvider, child) {
+                        // Debug logs for development - comment out for production
+                        print('=== UI CONSUMER BUILD DEBUG ===');
+                        print('RevenueProvider instance: $revenueProvider');
+                        print('Revenue stats: ${revenueProvider.revenueStats}');
+                        print('Total Revenue: ${revenueProvider.totalRevenue}');
+                        print('Total Orders: ${revenueProvider.totalOrders}');
+                        print('Average Transaction: ${revenueProvider.averageTransaction}');
+                        print('Is Loading: ${revenueProvider.isLoading}');
+                        print('================================');
+
                         return Column(
                           children: [
+                            // Debug text to verify data access - comment out for production
+                            // Container(
+                            //   padding: const EdgeInsets.all(8),
+                            //   color: Colors.yellow.shade100,
+                            //   child: Text(
+                            //     'DEBUG: Total Revenue: ${_formatCurrency(revenueProvider.totalRevenue * 100)}, Orders: ${revenueProvider.totalOrders}, Avg: ${_formatCurrency(revenueProvider.averageTransaction * 100)}',
+                            //     style: const TextStyle(fontSize: 12),
+                            //   ),
+                            // ),
+                            const SizedBox(height: 16),
                             _buildRevenueChart(revenueProvider),
                             const SizedBox(height: 24),
                             _buildPeriodSelector(revenueProvider),
@@ -107,7 +149,7 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
       children: [
         _buildMetricCard(
           'Today\'s Revenue',
-          '\$${(double.tryParse('${_dashboardData!['today']['revenue'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          _formatCurrency((double.tryParse('${_dashboardData!['today']['revenue'] ?? 0}') ?? 0)),
           Icons.attach_money,
           Colors.green,
         ),
@@ -119,13 +161,19 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
         ),
         _buildMetricCard(
           'Today\'s Avg Transaction',
-          '\$${(double.tryParse('${_dashboardData!['today']['average_transaction_value'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          (() {
+            double revenue = double.tryParse('${_dashboardData!['today']['revenue'] ?? 0}') ?? 0;
+            int orders = _dashboardData!['today']['orders'] ?? 0;
+            double avg = _calculateAverageTransaction(revenue, orders);
+            return _formatCurrency(avg * 100); // Convert back to cents for formatting
+          })(),
           Icons.trending_up,
           Colors.cyan,
+          onTap: () => _showDetailedChart(context, 'day'),
         ),
         _buildMetricCard(
           'This Week Revenue',
-          '\$${(double.tryParse('${_dashboardData!['this_week']['revenue'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          _formatCurrency((double.tryParse('${_dashboardData!['this_week']['revenue'] ?? 0}') ?? 0)),
           Icons.calendar_view_week,
           Colors.orange,
         ),
@@ -137,13 +185,19 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
         ),
         _buildMetricCard(
           'This Week Avg Transaction',
-          '\$${(double.tryParse('${_dashboardData!['this_week']['average_transaction_value'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          (() {
+            double revenue = double.tryParse('${_dashboardData!['this_week']['revenue'] ?? 0}') ?? 0;
+            int orders = _dashboardData!['this_week']['orders'] ?? 0;
+            double avg = _calculateAverageTransaction(revenue, orders);
+            return _formatCurrency(avg * 100); // Convert back to cents for formatting
+          })(),
           Icons.trending_up,
           Colors.amber,
+          onTap: () => _showDetailedChart(context, 'week'),
         ),
         _buildMetricCard(
           'This Month Revenue',
-          '\$${(double.tryParse('${_dashboardData!['this_month']['revenue'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          _formatCurrency((double.tryParse('${_dashboardData!['this_month']['revenue'] ?? 0}') ?? 0)),
           Icons.calendar_month,
           Colors.teal,
         ),
@@ -155,9 +209,15 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
         ),
         _buildMetricCard(
           'This Month Avg Transaction',
-          '\$${(double.tryParse('${_dashboardData!['this_month']['average_transaction_value'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          (() {
+            double revenue = double.tryParse('${_dashboardData!['this_month']['revenue'] ?? 0}') ?? 0;
+            int orders = _dashboardData!['this_month']['orders'] ?? 0;
+            double avg = _calculateAverageTransaction(revenue, orders);
+            return _formatCurrency(avg * 100); // Convert back to cents for formatting
+          })(),
           Icons.trending_up,
           Colors.lightGreen,
+          onTap: () => _showDetailedChart(context, 'month'),
         ),
         _buildMetricCard(
           'Total Products',
@@ -183,8 +243,8 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
-    return Card(
+  Widget _buildMetricCard(String title, String value, IconData icon, Color color, {VoidCallback? onTap}) {
+    Widget card = Card(
       elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -214,9 +274,26 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
         ),
       ),
     );
+
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: card,
+      );
+    }
+
+    return card;
   }
 
   Widget _buildRevenueChart(RevenueProvider revenueProvider) {
+    // Debug logs for development - comment out for production
+    print('=== BUILD REVENUE CHART DEBUG ===');
+    print('Is Loading: ${revenueProvider.isLoading}');
+    print('Revenue Stats: ${revenueProvider.revenueStats}');
+    print('Revenue Stats == null: ${revenueProvider.revenueStats == null}');
+    print('Total Revenue: ${revenueProvider.totalRevenue}');
+    print('==================================');
+
     if (revenueProvider.isLoading) {
       return const Card(
         elevation: 4,
@@ -228,12 +305,67 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
     }
 
     final revenueStats = revenueProvider.revenueStats;
-    if (revenueStats == null || revenueStats['chart_data'] == null) {
-      return const SizedBox();
+    final hasRevenueData = revenueProvider.totalRevenue > 0;
+
+    // Only show "No data available" if we're not loading and have no revenue data
+    if (!revenueProvider.isLoading && !hasRevenueData) {
+      return const Card(
+        elevation: 4,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: Text('No revenue data available')),
+        ),
+      );
     }
 
-    final chartData = revenueStats['chart_data'] as List;
-    if (chartData.isEmpty) return const SizedBox();
+    // If we have revenue data or are still loading, show the chart area
+    // (revenueStats might be null during loading, but we have data via getters)
+
+    final chartData = revenueStats?['chart_data'] as List?;
+    if (chartData == null || chartData.isEmpty) {
+      return Card(
+        elevation: 4,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Revenue Trend',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  Text(
+                    '${_formatCurrency(revenueProvider.totalRevenue)} total',
+                    style: const TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Text(
+                  'No chart data available',
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  'Chart data will appear when transactions are recorded',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Card(
       elevation: 4,
@@ -250,7 +382,7 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 Text(
-                  '\$${(double.tryParse('${revenueStats['total_revenue'] ?? 0}') ?? 0).toStringAsFixed(2)} total',
+                  '${_formatCurrency(revenueProvider.totalRevenue)} total',
                   style: const TextStyle(
                     color: Colors.green,
                     fontWeight: FontWeight.bold,
@@ -275,7 +407,7 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                           if (value.toInt() >= 0 && value.toInt() < chartData.length) {
                             final item = chartData[value.toInt()];
                             return Text(
-                              item['date'] ?? item['week']?.toString() ?? value.toString(),
+                              '${item['date'] ?? item['week']?.toString() ?? value.toString()}',
                               style: const TextStyle(fontSize: 10),
                             );
                           }
@@ -291,7 +423,7 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                         final item = entry.value;
                         return FlSpot(
                           entry.key.toDouble(),
-                          (double.tryParse('${item['revenue'] ?? 0}') ?? 0),
+                          (double.tryParse('${item['revenue'] ?? 0}') ?? 0) / 100, // Convert cents to dollars
                         );
                       }).toList(),
                       isCurved: true,
@@ -483,25 +615,32 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                 ),
               ],
             ),
-            if (revenueProvider.revenueStats != null) ...[
+            if (revenueProvider.totalRevenue > 0) ...[
               const SizedBox(height: 16),
+              // Debug container for development - comment out for production
+              // Container(
+              //   padding: const EdgeInsets.all(8),
+              //   color: Colors.blue.shade100,
+              //   child: Text(
+              //     'DEBUG: Raw revenue stats: ${revenueProvider.revenueStats}',
+              //     style: const TextStyle(fontSize: 10),
+              //   ),
+              // ),
+              // const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildStatItem(
                     'Total Revenue',
-                    '\$${(double.tryParse('${revenueProvider.revenueStats!['total_revenue'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+                    _formatCurrency(revenueProvider.totalRevenue),
                   ),
                   _buildStatItem(
                     'Total Orders',
-                    '${revenueProvider.revenueStats!['total_orders'] ?? 0}',
+                    '${revenueProvider.totalOrders}',
                   ),
                   _buildStatItem(
-                    'Change',
-                    '${revenueProvider.revenueStats!['revenue_change_percent'] ?? 0}%',
-                    color: (revenueProvider.revenueStats!['revenue_change_percent'] ?? 0) >= 0
-                        ? Colors.green
-                        : Colors.red,
+                    'Average Transaction',
+                    _formatCurrency(revenueProvider.averageTransaction),
                   ),
                 ],
               ),
@@ -521,6 +660,119 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
         foregroundColor: isSelected ? Colors.white : Colors.black,
       ),
       child: Text(label),
+    );
+  }
+
+  void _showDetailedChart(BuildContext context, String period) {
+    final revenueProvider = Provider.of<RevenueProvider>(context, listen: false);
+    revenueProvider.loadDetailedChartData(period);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.9,
+        builder: (context, scrollController) => Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Text(
+                'Detailed Revenue Chart - ${period.toUpperCase()}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: Consumer<RevenueProvider>(
+                  builder: (context, provider, child) {
+                    if (provider.isLoadingDetailed) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final data = provider.detailedChartData;
+                    if (data == null || data['chart_data'] == null) {
+                      return const Center(child: Text('No data available'));
+                    }
+
+                    final chartData = data['chart_data'] as List;
+                    if (chartData.isEmpty) {
+                      return const Center(child: Text('No chart data'));
+                    }
+
+                    return SingleChildScrollView(
+                      controller: scrollController,
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            height: 300,
+                            child: LineChart(
+                              LineChartData(
+                                gridData: FlGridData(show: false),
+                                titlesData: FlTitlesData(
+                                  leftTitles: AxisTitles(
+                                    sideTitles: SideTitles(showTitles: false),
+                                  ),
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      getTitlesWidget: (value, meta) {
+                                        if (value.toInt() >= 0 && value.toInt() < chartData.length) {
+                                          final item = chartData[value.toInt()];
+                                          return Text(
+                                            item['date'] ?? item['week']?.toString() ?? value.toString(),
+                                            style: const TextStyle(fontSize: 10),
+                                          );
+                                        }
+                                        return const Text('');
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                borderData: FlBorderData(show: false),
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    spots: chartData.asMap().entries.map((entry) {
+                                      final item = entry.value;
+                                      return FlSpot(
+                                        entry.key.toDouble(),
+                                        (double.tryParse('${item['revenue'] ?? 0}') ?? 0) / 100, // Convert cents to dollars
+                                      );
+                                    }).toList(),
+                                    isCurved: true,
+                                    color: Colors.blue,
+                                    barWidth: 3,
+                                    belowBarData: BarAreaData(
+                                      show: true,
+                                      color: Colors.blue.withValues(alpha: 0.1),
+                                    ),
+                                    dotData: FlDotData(show: false),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Revenue Trends for ${period.toUpperCase()}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Total Revenue: ${_formatCurrency((double.tryParse('${data['total_revenue'] ?? 0}') ?? 0))}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

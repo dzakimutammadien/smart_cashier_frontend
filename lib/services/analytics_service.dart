@@ -18,15 +18,27 @@ class AnalyticsService {
 
   Future<Map<String, dynamic>> getDashboardData() async {
     final headers = await _getHeaders();
+    final url = '$baseUrl/reports/dashboard';
+
+    print('=== DASHBOARD SERVICE DEBUG ===');
+    print('URL: $url');
+    print('Headers: $headers');
+
     final response = await http.get(
-      Uri.parse('$baseUrl/reports/dashboard'),
+      Uri.parse(url),
       headers: headers,
     );
 
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+    print('================================');
+
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      final decoded = json.decode(response.body);
+      print('Decoded dashboard data: $decoded');
+      return decoded;
     } else {
-      throw Exception('Failed to load dashboard data');
+      throw Exception('Failed to load dashboard data: ${response.statusCode}');
     }
   }
 
@@ -99,15 +111,28 @@ class AnalyticsService {
 
   Future<Map<String, dynamic>> getRevenueStatistics({String period = 'month'}) async {
     final headers = await _getHeaders();
+    final url = '$baseUrl/reports/revenue-statistics?period=$period';
+
+    print('=== REVENUE STATS SERVICE DEBUG ===');
+    print('URL: $url');
+    print('Period: $period');
+    print('Headers: $headers');
+
     final response = await http.get(
-      Uri.parse('$baseUrl/reports/revenue-statistics?period=$period'),
+      Uri.parse(url),
       headers: headers,
     );
 
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+    print('====================================');
+
     if (response.statusCode == 200) {
-      return json.decode(response.body);
+      final decoded = json.decode(response.body);
+      print('Decoded revenue statistics: $decoded');
+      return decoded;
     } else {
-      throw Exception('Failed to load revenue statistics');
+      throw Exception('Failed to load revenue statistics: ${response.statusCode}');
     }
   }
 
