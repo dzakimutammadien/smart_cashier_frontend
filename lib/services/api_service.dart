@@ -94,6 +94,106 @@ class ApiService {
     }
   }
 
+  Future<Category> createCategory(Category category) async {
+    // Validation
+    if (category.name.trim().isEmpty) {
+      throw Exception('Category name cannot be empty');
+    }
+
+    try {
+      final headers = await _getHeaders();
+      final response = await client.post(
+        Uri.parse('$baseUrl/categories'),
+        headers: headers,
+        body: json.encode({
+          'name': category.name,
+          'description': category.description,
+        }),
+      );
+
+      print('Create Category Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 201) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          return Category.fromJson(responseData['data']);
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Please login again');
+      } else {
+        throw Exception('Failed to create category: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in createCategory: $e');
+      throw Exception('Failed to create category: $e');
+    }
+  }
+
+  Future<Category> updateCategory(int id, Category category) async {
+    // Validation
+    if (category.name.trim().isEmpty) {
+      throw Exception('Category name cannot be empty');
+    }
+
+    try {
+      final headers = await _getHeaders();
+      final response = await client.put(
+        Uri.parse('$baseUrl/categories/$id'),
+        headers: headers,
+        body: json.encode({
+          'name': category.name,
+          'description': category.description,
+        }),
+      );
+
+      print('Update Category Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['success'] == true) {
+          return Category.fromJson(responseData['data']);
+        } else {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Please login again');
+      } else {
+        throw Exception('Failed to update category: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in updateCategory: $e');
+      throw Exception('Failed to update category: $e');
+    }
+  }
+
+  Future<void> deleteCategory(int id) async {
+    try {
+      final headers = await _getHeaders();
+      final response = await client.delete(Uri.parse('$baseUrl/categories/$id'), headers: headers);
+
+      print('Delete Category Response: ${response.statusCode} - ${response.body}');
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> responseData = json.decode(response.body);
+
+        if (responseData['success'] != true) {
+          throw Exception('API Error: ${responseData['message']}');
+        }
+      } else if (response.statusCode == 401) {
+        throw Exception('Unauthorized: Please login again');
+      } else {
+        throw Exception('Failed to delete category: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error in deleteCategory: $e');
+      throw Exception('Failed to delete category: $e');
+    }
+  }
+
   Future<Product> createProduct(Product product, {PickedImage? imageFile}) async {
     // Validation
     if (product.name.trim().isEmpty) {

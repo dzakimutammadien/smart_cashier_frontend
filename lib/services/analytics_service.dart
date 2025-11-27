@@ -164,4 +164,36 @@ class AnalyticsService {
       throw Exception('Failed to export orders');
     }
   }
+
+  Future<List<Map<String, dynamic>>> getLowStockProducts() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/reports/low-stock-products'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      } else if (data is Map && data['data'] is List) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      }
+      return [];
+    } else {
+      throw Exception('Failed to load low stock products');
+    }
+  }
+
+  Future<void> exportLowStockProducts() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/reports/export/low-stock-products'),
+      headers: headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to export low stock products');
+    }
+  }
 }

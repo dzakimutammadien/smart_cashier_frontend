@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
+import 'providers/revenue_provider.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/product_list_page.dart';
 import 'pages/pos_page.dart';
 import 'pages/analytics_dashboard_page.dart';
+import 'pages/category_list_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -22,6 +24,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => RevenueProvider()),
       ],
       child: MaterialApp(
         title: 'Smart Cashier',
@@ -36,6 +39,7 @@ class MyApp extends StatelessWidget {
           '/products': (context) => ProductListPage(),
           '/pos': (context) => PosPage(),
           '/analytics': (context) => AnalyticsDashboardPage(),
+          '/categories': (context) => CategoryListPage(),
         },
       ),
     );
@@ -95,6 +99,11 @@ class HomePage extends StatelessWidget {
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/products'),
               child: Text('Manage Products'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/categories'),
+              child: Text('Manage Categories'),
             ),
             SizedBox(height: 20),
             ElevatedButton(

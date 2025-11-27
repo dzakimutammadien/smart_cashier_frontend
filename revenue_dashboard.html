@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revenue Statistics Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .chart-container {
+            padding: 30px;
+            background: white;
+            margin: 0 30px 30px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+
+        .chart-container h2 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        /* CSS-based chart fallback */
+        .css-chart {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            height: 300px;
+            padding: 20px 0;
+            border-left: 2px solid #ecf0f1;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .css-bar {
+            flex: 1;
+            margin: 0 2px;
+            background: linear-gradient(to top, #3498db, #2980b9);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            transition: all 0.5s ease;
+            min-height: 10px;
+        }
+
+        .css-bar:hover {
+            opacity: 0.8;
+        }
+
+        .css-bar-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+            white-space: nowrap;
+        }
+
+        .css-bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            color: #7f8c8d;
+            white-space: nowrap;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            border-left: 5px solid #3498db;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+
+        .stat-card.revenue {
+            border-left-color: #2ecc71;
+        }
+
+        .stat-card.orders {
+            border-left-color: #e74c3c;
+        }
+
+        .stat-card.change {
+            border-left-color: #f39c12;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .change-positive {
+            color: #27ae60;
+        }
+
+        .change-negative {
+            color: #e74c3c;
+        }
+
+        .filters {
+            padding: 0 30px 30px;
+            text-align: center;
+        }
+
+        .filter-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            background: #ecf0f1;
+            color: #34495e;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .filter-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .filter-btn.active {
+            background: #3498db;
+            color: white;
+        }
+
+        .download-section {
+            padding: 0 30px 30px;
+            text-align: center;
+        }
+
+        .download-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .download-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .download-btn.pdf {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .download-btn.excel {
+            background: #27ae60;
+            color: white;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #3498db;
+            font-size: 1.2rem;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+                padding: 20px;
+            }
+
+            .stat-card {
+                padding: 20px;
+            }
+
+            .chart-container {
+                padding: 20px;
+                margin: 0 20px 20px;
+            }
+
+            .chart-wrapper {
+                height: 300px;
+            }
+
+            .filter-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .download-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> Revenue Statistics Dashboard</h1>
+            <p>Monitor your business performance with real-time insights</p>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card revenue">
+                <div class="stat-value" id="totalRevenue">$0.00</div>
+                <div class="stat-label">Total Revenue</div>
+            </div>
+            <div class="stat-card orders">
+                <div class="stat-value" id="totalOrders">0</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+            <div class="stat-card change">
+                <div class="stat-value" id="percentageChange">0%</div>
+                <div class="stat-label">Percentage Change</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h2><i class="fas fa-chart-bar"></i> Revenue Chart</h2>
+            <div class="chart-wrapper">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-period="day">Day</button>
+                <button class="filter-btn" data-period="week">Week</button>
+                <button class="filter-btn" data-period="month">Month</button>
+                <button class="filter-btn" data-period="year">Year</button>
+            </div>
+        </div>
+
+        <div class="download-section">
+            <div class="download-buttons">
+                <button class="download-btn pdf" id="downloadPdf">
+                    <i class="fas fa-file-pdf"></i> Download PDF
+                </button>
+                <button class="download-btn excel" id="downloadExcel">
+                    <i class="fas fa-file-excel"></i> Download Excel
+                </button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            Loading data...
+        </div>
+    </div>
+
+    <script>
+        // Dummy data for different periods
+        const dummyData = {
+            day: {
+                revenue: '$1,250',
+                orders: '15',
+                change: '+5.2%'
+            },
+            week: {
+                revenue: '$8,750',
+                orders: '98',
+                change: '+12.8%'
+            },
+            month: {
+                revenue: '$32,500',
+                orders: '345',
+                change: '+8.3%'
+            },
+            year: {
+                revenue: '$425,000',
+                orders: '4,210',
+                change: '+15.6%'
+            }
+        };
+
+        // Chart data for different periods
+        const chartData = {
+            day: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                data: [180, 220, 150, 280, 320, 290, 180]
+            },
+            week: {
+                labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
+                data: [2100, 1850, 2200, 1750]
+            },
+            month: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                data: [28500, 31200, 29800, 33400, 32100, 35800, 34200, 36500, 33800, 35200, 33100, 32500]
+            },
+            year: {
+                labels: ['2020', '2021', '2022', '2023', '2024', '2025'],
+                data: [320000, 365000, 389000, 412000, 425000, 438000]
+            }
+        };
+
+        // DOM elements
+        const totalRevenue = document.getElementById('totalRevenue');
+        const totalOrders = document.getElementById('totalOrders');
+        const percentageChange = document.getElementById('percentageChange');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const downloadPdf = document.getElementById('downloadPdf');
+        const downloadExcel = document.getElementById('downloadExcel');
+        const loading = document.getElementById('loading');
+        const revenueChartCanvas = document.getElementById('revenueChart');
+
+        // Chart instance
+        let revenueChart;
+
+        // Function to initialize chart
+        function initializeChart() {
+            try {
+                // Check if Chart.js is available
+                if (typeof Chart === 'undefined') {
+                    console.warn('Chart.js not available, using CSS fallback');
+                    renderCSSChart('day');
+                    return;
+                }
+
+                if (!revenueChartCanvas) {
+                    console.error('Chart canvas element not found');
+                    renderCSSChart('day');
+                    return;
+                }
+
+                const ctx = revenueChartCanvas.getContext('2d');
+                if (!ctx) {
+                    console.error('Could not get canvas context');
+                    renderCSSChart('day');
+                    return;
+                }
+
+                const initialData = chartData.day;
+                if (!initialData) {
+                    console.error('Initial chart data not found');
+                    renderCSSChart('day');
+                    return;
+                }
+
+                revenueChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: initialData.labels,
+                        datasets: [{
+                            label: 'Revenue ($)',
+                            data: initialData.data,
+                            backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                            borderColor: 'rgba(52, 152, 219, 1)',
+                            borderWidth: 1,
+                            borderRadius: 4,
+                            borderSkipped: false,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    callback: function(value) {
+                                        return '$' + value.toLocaleString();
+                                    }
+                                }
+                            }
+                        },
+                        animation: {
+                            duration: 1000,
+                            easing: 'easeInOutQuart'
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('Error initializing chart:', error);
+                // Fallback to CSS chart
+                renderCSSChart('day');
+            }
+        }
+
+        // Function to render CSS-based chart as fallback
+        function renderCSSChart(period) {
+            try {
+                const data = chartData[period];
+                if (!data) return;
+
+                const chartWrapper = document.querySelector('.chart-wrapper');
+                if (!chartWrapper) return;
+
+                // Find max value for scaling
+                const maxValue = Math.max(...data.data);
+
+                let html = '<div class="css-chart">';
+
+                data.labels.forEach((label, index) => {
+                    const value = data.data[index];
+                    const heightPercent = (value / maxValue) * 100;
+
+                    html += `
+                        <div class="css-bar" style="height: ${heightPercent}%">
+                            <div class="css-bar-value">$${value.toLocaleString()}</div>
+                            <div class="css-bar-label">${label}</div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                chartWrapper.innerHTML = html;
+            } catch (error) {
+                console.error('Error rendering CSS chart:', error);
+            }
+        }
+
+        // Function to update chart
+        function updateChart(period) {
+            try {
+                if (revenueChart) {
+                    // Use Chart.js if available
+                    const data = chartData[period];
+                    if (!data) {
+                        console.error(`Chart data for period '${period}' not found`);
+                        return;
+                    }
+
+                    revenueChart.data.labels = data.labels;
+                    revenueChart.data.datasets[0].data = data.data;
+                    revenueChart.update();
+                } else {
+                    // Fallback to CSS chart
+                    renderCSSChart(period);
+                }
+            } catch (error) {
+                console.error('Error updating chart:', error);
+                // Try CSS fallback
+                renderCSSChart(period);
+            }
+        }
+
+        // Function to update statistics
+        function updateStats(period) {
+            try {
+                // Validate period
+                if (!dummyData[period]) {
+                    console.error(`Data for period '${period}' not found`);
+                    alert('Invalid period selected');
+                    return;
+                }
+
+                loading.classList.add('show');
+
+                // Simulate loading delay
+                setTimeout(() => {
+                    try {
+                        const data = dummyData[period];
+
+                        // Update DOM elements with validation
+                        if (totalRevenue) totalRevenue.textContent = data.revenue;
+                        if (totalOrders) totalOrders.textContent = data.orders;
+                        if (percentageChange) {
+                            percentageChange.textContent = data.change;
+
+                            // Update change color based on positive/negative
+                            if (data.change.startsWith('+')) {
+                                percentageChange.className = 'stat-value change-positive';
+                            } else {
+                                percentageChange.className = 'stat-value change-negative';
+                            }
+                        }
+
+                        // Update chart
+                        updateChart(period);
+
+                    } catch (innerError) {
+                        console.error('Error updating statistics:', innerError);
+                        alert('Error loading data. Please try again.');
+                    } finally {
+                        loading.classList.remove('show');
+                    }
+                }, 1000);
+            } catch (error) {
+                console.error('Error in updateStats:', error);
+                loading.classList.remove('show');
+                alert('Failed to update statistics');
+            }
+        }
+
+        // Filter button event listeners
+        filterButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Remove active class from all buttons
+                filterButtons.forEach(btn => btn.classList.remove('active'));
+
+                // Add active class to clicked button
+                button.classList.add('active');
+
+                // Update stats based on selected period
+                const period = button.dataset.period;
+                updateStats(period);
+            });
+        });
+
+        // Function to simulate file download
+        function downloadFile(filename, content, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Function to generate CSV content for Excel
+        function generateCSV(period) {
+            const data = dummyData[period];
+            const chartDataPeriod = chartData[period];
+
+            let csv = 'Revenue Report\n';
+            csv += `Period: ${period.charAt(0).toUpperCase() + period.slice(1)}\n`;
+            csv += `Total Revenue: ${data.revenue}\n`;
+            csv += `Total Orders: ${data.orders}\n`;
+            csv += `Percentage Change: ${data.change}\n\n`;
+
+            csv += 'Chart Data\n';
+            csv += 'Label,Value\n';
+            chartDataPeriod.labels.forEach((label, index) => {
+                csv += `${label},${chartDataPeriod.data[index]}\n`;
+            });
+
+            return csv;
+        }
+
+        // Function to generate simple HTML content for PDF simulation
+        function generateHTMLReport(period) {
+            const data = dummyData[period];
+
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Revenue Report - ${period.charAt(0).toUpperCase() + period.slice(1)}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .header { background: #3498db; color: white; padding: 20px; text-align: center; }
+                        .stats { display: flex; justify-content: space-around; margin: 20px 0; }
+                        .stat { text-align: center; padding: 10px; }
+                        .stat-value { font-size: 24px; font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>Revenue Report</h1>
+                        <p>Period: ${period.charAt(0).toUpperCase() + period.slice(1)}</p>
+                    </div>
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value">${data.revenue}</div>
+                            <div>Total Revenue</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">${data.orders}</div>
+                            <div>Total Orders</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">${data.change}</div>
+                            <div>Change</div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `;
+        }
+
+        // Download button event listeners
+        downloadPdf.addEventListener('click', () => {
+            if (confirm('Download PDF report? This will generate a revenue report for the current period.')) {
+                const currentPeriod = document.querySelector('.filter-btn.active').dataset.period;
+                const htmlContent = generateHTMLReport(currentPeriod);
+                downloadFile(`revenue_report_${currentPeriod}.html`, htmlContent, 'text/html');
+                alert('PDF report downloaded successfully!');
+            }
+        });
+
+        downloadExcel.addEventListener('click', () => {
+            if (confirm('Download Excel data? This will export revenue data in CSV format.')) {
+                const currentPeriod = document.querySelector('.filter-btn.active').dataset.period;
+                const csvContent = generateCSV(currentPeriod);
+                downloadFile(`revenue_data_${currentPeriod}.csv`, csvContent, 'text/csv');
+                alert('Excel data downloaded successfully!');
+            }
+        });
+
+        // Initialize chart and stats
+        initializeChart();
+        updateStats('day');
+    </script>
+</body>
+</html>

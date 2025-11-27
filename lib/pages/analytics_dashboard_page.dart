@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:smart_cashier_frontend/providers/auth_provider.dart';
+import 'package:smart_cashier_frontend/providers/revenue_provider.dart';
 import 'package:smart_cashier_frontend/services/analytics_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:smart_cashier_frontend/services/export_service.dart';
+import 'package:smart_cashier_frontend/pages/low_stock_products_page.dart';
 
 class AnalyticsDashboardPage extends StatefulWidget {
   const AnalyticsDashboardPage({super.key});
@@ -15,34 +15,36 @@ class AnalyticsDashboardPage extends StatefulWidget {
 
 class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
   final AnalyticsService _analyticsService = AnalyticsService();
+  final ExportService _exportService = ExportService();
   Map<String, dynamic>? _dashboardData;
-  Map<String, dynamic>? _revenueStats;
-  Map<String, dynamic>? _productAnalytics;
   bool _isLoading = true;
-  String _selectedPeriod = 'month';
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<RevenueProvider>(context, listen: false).loadRevenueStats();
+    });
   }
 
   Future<void> _loadData() async {
+    print('DEBUG: Starting _loadData');
     setState(() => _isLoading = true);
     try {
-      final results = await Future.wait([
-        _analyticsService.getDashboardData(),
-        _analyticsService.getRevenueStatistics(period: _selectedPeriod),
-        _analyticsService.getProductAnalytics(),
-      ]);
+      final result = await _analyticsService.getDashboardData();
+      print('DEBUG: Dashboard API Response: $result');
 
       setState(() {
-        _dashboardData = results[0]['data'];
-        _revenueStats = results[1]['data'];
-        _productAnalytics = results[2]['data'];
+        _dashboardData = result['data'] ?? result;
+        print('DEBUG: Parsed dashboardData: $_dashboardData');
+        if (_dashboardData != null && _dashboardData!['today'] != null) {
+          print('DEBUG: Today revenue: ${_dashboardData!['today']['revenue']}');
+        }
         _isLoading = false;
       });
     } catch (e) {
+      print('DEBUG: ERROR in _loadData: $e');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -52,43 +54,20 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
     }
   }
 
-  Future<void> _exportReport(String type) async {
-    try {
-      await _analyticsService.exportSalesReport(type);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${type.toUpperCase()} report exported successfully')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error exporting report: $e')),
-        );
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Analytics Dashboard'),
-        actions: [
-          PopupMenuButton<String>(
-            onSelected: (value) => _exportReport(value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(value: 'daily', child: Text('Export Daily Report')),
-              const PopupMenuItem(value: 'weekly', child: Text('Export Weekly Report')),
-              const PopupMenuItem(value: 'monthly', child: Text('Export Monthly Report')),
-            ],
-          ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadData,
+              onRefresh: () async {
+                _loadData();
+                Provider.of<RevenueProvider>(context, listen: false).refresh();
+              },
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -96,11 +75,19 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                   children: [
                     _buildMetricsCards(),
                     const SizedBox(height: 24),
-                    _buildRevenueChart(),
+                    Consumer<RevenueProvider>(
+                      builder: (context, revenueProvider, child) {
+                        return Column(
+                          children: [
+                            _buildRevenueChart(revenueProvider),
+                            const SizedBox(height: 24),
+                            _buildPeriodSelector(revenueProvider),
+                          ],
+                        );
+                      },
+                    ),
                     const SizedBox(height: 24),
                     _buildTopProductsChart(),
-                    const SizedBox(height: 24),
-                    _buildPeriodSelector(),
                   ],
                 ),
               ),
@@ -131,6 +118,12 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
           Colors.blue,
         ),
         _buildMetricCard(
+          'Today\'s Avg Transaction',
+          '\$${(double.tryParse('${_dashboardData!['today']['average_transaction_value'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          Icons.trending_up,
+          Colors.cyan,
+        ),
+        _buildMetricCard(
           'This Week Revenue',
           '\$${(double.tryParse('${_dashboardData!['this_week']['revenue'] ?? 0}') ?? 0).toStringAsFixed(2)}',
           Icons.calendar_view_week,
@@ -141,6 +134,12 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
           '${_dashboardData!['this_week']['orders'] ?? 0}',
           Icons.calendar_today,
           Colors.purple,
+        ),
+        _buildMetricCard(
+          'This Week Avg Transaction',
+          '\$${(double.tryParse('${_dashboardData!['this_week']['average_transaction_value'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          Icons.trending_up,
+          Colors.amber,
         ),
         _buildMetricCard(
           'This Month Revenue',
@@ -155,16 +154,30 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
           Colors.indigo,
         ),
         _buildMetricCard(
+          'This Month Avg Transaction',
+          '\$${(double.tryParse('${_dashboardData!['this_month']['average_transaction_value'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+          Icons.trending_up,
+          Colors.lightGreen,
+        ),
+        _buildMetricCard(
           'Total Products',
           '${_dashboardData!['inventory']['total_products'] ?? 0}',
           Icons.inventory,
           Colors.brown,
         ),
-        _buildMetricCard(
-          'Low Stock Items',
-          '${_dashboardData!['inventory']['low_stock_products'] ?? 0}',
-          Icons.warning,
-          Colors.red,
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LowStockProductsPage()),
+            );
+          },
+          child: _buildMetricCard(
+            'Low Stock Alerts',
+            '${_dashboardData!['inventory']['low_stock_products'] ?? 0}',
+            Icons.warning,
+            Colors.red,
+          ),
         ),
       ],
     );
@@ -203,12 +216,23 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
     );
   }
 
-  Widget _buildRevenueChart() {
-    if (_revenueStats == null || _revenueStats!['chart_data'] == null) {
+  Widget _buildRevenueChart(RevenueProvider revenueProvider) {
+    if (revenueProvider.isLoading) {
+      return const Card(
+        elevation: 4,
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    final revenueStats = revenueProvider.revenueStats;
+    if (revenueStats == null || revenueStats['chart_data'] == null) {
       return const SizedBox();
     }
 
-    final chartData = _revenueStats!['chart_data'] as List;
+    final chartData = revenueStats['chart_data'] as List;
     if (chartData.isEmpty) return const SizedBox();
 
     return Card(
@@ -226,8 +250,8 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 Text(
-                  '${(double.tryParse('${_revenueStats!['total_revenue'] ?? 0}') ?? 0).toStringAsFixed(2)} total',
-                  style: TextStyle(
+                  '\$${(double.tryParse('${revenueStats['total_revenue'] ?? 0}') ?? 0).toStringAsFixed(2)} total',
+                  style: const TextStyle(
                     color: Colors.green,
                     fontWeight: FontWeight.bold,
                   ),
@@ -275,7 +299,7 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
                       barWidth: 3,
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withValues(alpha: 0.1),
                       ),
                       dotData: FlDotData(show: false),
                     ),
@@ -390,7 +414,7 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
     );
   }
 
-  Widget _buildPeriodSelector() {
+  Widget _buildPeriodSelector(RevenueProvider revenueProvider) {
     return Card(
       elevation: 4,
       child: Padding(
@@ -404,43 +428,78 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
             ),
             const SizedBox(height: 16),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                const Text('Period: '),
-                const SizedBox(width: 8),
-                DropdownButton<String>(
-                  value: _selectedPeriod,
-                  items: const [
-                    DropdownMenuItem(value: 'day', child: Text('Day')),
-                    DropdownMenuItem(value: 'week', child: Text('Week')),
-                    DropdownMenuItem(value: 'month', child: Text('Month')),
-                    DropdownMenuItem(value: 'year', child: Text('Year')),
+                _buildPeriodButton('Day', 'day', revenueProvider),
+                _buildPeriodButton('Week', 'week', revenueProvider),
+                _buildPeriodButton('Month', 'month', revenueProvider),
+                _buildPeriodButton('Year', 'year', revenueProvider),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (revenueProvider.errorMessage != null) ...[
+              Container(
+                padding: const EdgeInsets.all(8),
+                color: Colors.red.shade100,
+                child: Row(
+                  children: [
+                    const Icon(Icons.error, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        revenueProvider.errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => revenueProvider.refresh(),
+                      child: const Text('Retry'),
+                    ),
                   ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _selectedPeriod = value);
-                      _loadData();
-                    }
-                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () => _exportService.exportPDF(context),
+                  icon: const Icon(Icons.picture_as_pdf),
+                  label: const Text('PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () => _exportService.exportExcel(context),
+                  icon: const Icon(Icons.table_chart),
+                  label: const Text('Excel'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
                 ),
               ],
             ),
-            if (_revenueStats != null) ...[
+            if (revenueProvider.revenueStats != null) ...[
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildStatItem(
                     'Total Revenue',
-                    '\$${(double.tryParse('${_revenueStats!['total_revenue'] ?? 0}') ?? 0).toStringAsFixed(2)}',
+                    '\$${(double.tryParse('${revenueProvider.revenueStats!['total_revenue'] ?? 0}') ?? 0).toStringAsFixed(2)}',
                   ),
                   _buildStatItem(
                     'Total Orders',
-                    '${_revenueStats!['total_orders'] ?? 0}',
+                    '${revenueProvider.revenueStats!['total_orders'] ?? 0}',
                   ),
                   _buildStatItem(
                     'Change',
-                    '${_revenueStats!['revenue_change_percent'] ?? 0}%',
-                    color: (_revenueStats!['revenue_change_percent'] ?? 0) >= 0
+                    '${revenueProvider.revenueStats!['revenue_change_percent'] ?? 0}%',
+                    color: (revenueProvider.revenueStats!['revenue_change_percent'] ?? 0) >= 0
                         ? Colors.green
                         : Colors.red,
                   ),
@@ -450,6 +509,18 @@ class _AnalyticsDashboardPageState extends State<AnalyticsDashboardPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPeriodButton(String label, String period, RevenueProvider revenueProvider) {
+    final isSelected = revenueProvider.selectedPeriod == period;
+    return ElevatedButton(
+      onPressed: () => revenueProvider.setPeriod(period),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isSelected ? Theme.of(context).primaryColor : Colors.grey[300],
+        foregroundColor: isSelected ? Colors.white : Colors.black,
+      ),
+      child: Text(label),
     );
   }
 
